@@ -59,7 +59,6 @@ public class AttachmentService {
 
             for (String imageFileName : imageRefs) {
                 try {
-                    // Skip if already processed
                     if (attachmentRepository.existsByFileName(imageFileName)) {
                         log.debug("Image already processed, skipping: {}", imageFileName);
                         skipped++;
@@ -73,10 +72,8 @@ public class AttachmentService {
                         continue;
                     }
 
-                    // Analyze with Claude Vision
-                    String description = claudeVisionService.describeImage(imagePath);
+                    String description = claudeVisionService.describeImage(imagePath, note.getContent());
 
-                    // Save attachment
                     Attachment attachment = Attachment.builder()
                             .fileName(imageFileName)
                             .noteId(noteId)
@@ -85,7 +82,6 @@ public class AttachmentService {
                             .build();
                     attachmentRepository.save(attachment);
 
-                    // Generate and store embedding for description
                     if (description != null && !description.isEmpty()) {
                         float[] embedding = embeddingService.generateEmbedding(description);
                         String embeddingStr = floatArrayToVectorString(embedding);

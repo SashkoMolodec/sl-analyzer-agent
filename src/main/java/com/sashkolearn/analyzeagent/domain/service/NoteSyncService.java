@@ -33,7 +33,6 @@ public class NoteSyncService {
 
     /**
      * Synchronizes all markdown files from notes folder
-     *
      * Process:
      * 1. Scans folder recursively
      * 2. Loads new/updated files into DB
@@ -54,10 +53,9 @@ public class NoteSyncService {
         List<Path> markdownFiles = findAllMarkdownFiles(notesPath);
         log.info("Found {} markdown files", markdownFiles.size());
 
-        // Collect all file paths from disk
         Set<String> diskFilePaths = markdownFiles.stream()
-            .map(path -> path.toAbsolutePath().toString())
-            .collect(Collectors.toSet());
+                .map(path -> path.toAbsolutePath().toString())
+                .collect(Collectors.toSet());
 
         int newNotes = 0;
         int updatedNotes = 0;
@@ -65,7 +63,6 @@ public class NoteSyncService {
         int errorNotes = 0;
         List<UUID> changedNoteIds = new ArrayList<>();
 
-        // Sync files from disk to DB
         for (Path file : markdownFiles) {
             try {
                 SyncActionResult actionResult = syncSingleNote(file);
@@ -86,26 +83,22 @@ public class NoteSyncService {
             }
         }
 
-        // Delete notes from DB that no longer exist on disk
         int deletedNotes = deleteNotesNotOnDisk(diskFilePaths);
 
         SyncResult result = new SyncResult(
-            markdownFiles.size(),
-            newNotes,
-            updatedNotes,
-            skippedNotes,
-            errorNotes,
-            deletedNotes,
-            changedNoteIds
+                markdownFiles.size(),
+                newNotes,
+                updatedNotes,
+                skippedNotes,
+                errorNotes,
+                deletedNotes,
+                changedNoteIds
         );
 
         log.info("Sync completed: {}", result);
         return result;
     }
 
-    /**
-     * Generates embeddings for all notes without embeddings
-     */
     @Transactional
     public int generateMissingEmbeddings() {
         List<Note> notesWithoutEmbedding = noteRepository.findNotesWithoutEmbedding();
@@ -124,9 +117,9 @@ public class NoteSyncService {
             List<Note> batch = notesWithoutEmbedding.subList(i, end);
 
             log.info("Processing batch {}/{} (size: {})",
-                (i / batchSize) + 1,
-                (notesWithoutEmbedding.size() + batchSize - 1) / batchSize,
-                batch.size()
+                    (i / batchSize) + 1,
+                    (notesWithoutEmbedding.size() + batchSize - 1) / batchSize,
+                    batch.size()
             );
 
             try {
@@ -134,7 +127,6 @@ public class NoteSyncService {
                 processedCount += batch.size();
             } catch (Exception e) {
                 log.error("Failed to process batch starting at index {}", i, e);
-                // Continue with next batch
             }
         }
 
@@ -142,16 +134,13 @@ public class NoteSyncService {
         return processedCount;
     }
 
-    /**
-     * Finds all .md files in folder recursively
-     */
     private List<Path> findAllMarkdownFiles(Path rootPath) {
         List<Path> markdownFiles = new ArrayList<>();
 
         try (Stream<Path> paths = Files.walk(rootPath)) {
             paths.filter(Files::isRegularFile)
-                 .filter(path -> path.toString().toLowerCase().endsWith(".md"))
-                 .forEach(markdownFiles::add);
+                    .filter(path -> path.toString().toLowerCase().endsWith(".md"))
+                    .forEach(markdownFiles::add);
         } catch (IOException e) {
             log.error("Failed to walk directory tree: {}", rootPath, e);
             throw new RuntimeException("Failed to scan notes directory", e);
@@ -160,43 +149,37 @@ public class NoteSyncService {
         return markdownFiles;
     }
 
-    /**
-     * Synchronizes a single note file
-     */
     private SyncActionResult syncSingleNote(Path file) throws IOException {
         String absolutePath = file.toAbsolutePath().toString();
         String fileName = file.getFileName().toString();
         String content = Files.readString(file);
         long fileSize = Files.size(file);
 
-        // Check if note already exists
         var existingNote = noteRepository.findByFilePath(absolutePath);
 
         if (existingNote.isPresent()) {
             Note note = existingNote.get();
 
-            // Check if file size changed (simple change detection)
             if (note.getFileSize().equals(fileSize)) {
                 log.debug("Note unchanged, skipping: {}", fileName);
                 return new SyncActionResult(SyncAction.SKIPPED, null);
             }
 
-            // Update existing note
             note.setContent(content);
             note.setFileSize(fileSize);
             noteRepository.save(note);
-            noteRepository.clearEmbedding(note.getId()); // Reset embedding, will generate later
+            noteRepository.clearEmbedding(note.getId());
 
             log.info("Updated note: {}", fileName);
             return new SyncActionResult(SyncAction.UPDATED, note.getId());
         } else {
-            // Create new note
+
             Note newNote = Note.builder()
-                .fileName(fileName)
-                .filePath(absolutePath)
-                .content(content)
-                .fileSize(fileSize)
-                .build();
+                    .fileName(fileName)
+                    .filePath(absolutePath)
+                    .content(content)
+                    .fileSize(fileSize)
+                    .build();
 
             noteRepository.save(newNote);
             log.info("Created new note: {}", fileName);
@@ -204,9 +187,6 @@ public class NoteSyncService {
         }
     }
 
-    /**
-     * Deletes notes from DB that no longer exist on disk
-     */
     private int deleteNotesNotOnDisk(Set<String> diskFilePaths) {
         List<Note> allNotes = noteRepository.findAll();
         List<Note> notesToDelete = new ArrayList<>();
@@ -226,20 +206,14 @@ public class NoteSyncService {
         return notesToDelete.size();
     }
 
-    /**
-     * Processes batch of notes for embedding generation.
-     * Enriches note content with attachment descriptions before generating embeddings.
-     */
     private void processBatchEmbeddings(List<Note> notes) {
-        // Collect texts for batch request, enriched with attachment descriptions
         List<String> texts = notes.stream()
-            .map(this::getEnrichedContent)
-            .toList();
+                .map(this::getEnrichedContent)
+                .toList();
 
         // Generate embeddings in one API call
         List<float[]> embeddings = embeddingService.generateEmbeddingsBatch(texts);
 
-        // Update notes with embeddings via native query
         for (int i = 0; i < notes.size(); i++) {
             Note note = notes.get(i);
             float[] embedding = embeddings.get(i);
@@ -266,9 +240,6 @@ public class NoteSyncService {
         return enriched.toString();
     }
 
-    /**
-     * Converts float array to PostgreSQL vector string format "[0.1,0.2,...]"
-     */
     private String floatArrayToVectorString(float[] floats) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < floats.length; i++) {
@@ -287,13 +258,13 @@ public class NoteSyncService {
     }
 
     public record SyncResult(
-        int totalFiles,
-        int newNotes,
-        int updatedNotes,
-        int skippedNotes,
-        int errorNotes,
-        int deletedNotes,
-        List<UUID> changedNoteIds
+            int totalFiles,
+            int newNotes,
+            int updatedNotes,
+            int skippedNotes,
+            int errorNotes,
+            int deletedNotes,
+            List<UUID> changedNoteIds
     ) {
     }
 }

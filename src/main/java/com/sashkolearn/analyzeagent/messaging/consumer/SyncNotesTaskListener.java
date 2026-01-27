@@ -25,37 +25,34 @@ public class SyncNotesTaskListener {
         log.info("Received sync notes task for chat: {}", task.chatId());
 
         try {
-            // Perform synchronization (progress stored in Redis)
+            // sync (progress stored in Redis)
             FullSyncResult result = noteSyncOrchestrator.performFullSync(
-                progress -> {
-                    // Store progress in Redis for real-time updates (optional)
-                    String progressKey = "sync:progress:" + task.chatId();
-                    redisService.setObject(progressKey, progress, 300); // 5 min TTL
-                }
+                    progress -> {
+                        String progressKey = "sync:progress:" + task.chatId();
+                        redisService.setObject(progressKey, progress, 300);
+                    }
             );
 
-            // Store result in Redis (claim-check pattern)
+            // store result in Redis (claim-check pattern)
             String redisKey = "sync:result:" + task.chatId();
-            redisService.setObject(redisKey, result, 3600); // 1 hour TTL
+            redisService.setObject(redisKey, result, 3600);
 
-            // Send success result
             SyncNotesResultDto resultDto = new SyncNotesResultDto(
-                task.chatId(),
-                true,
-                redisKey,
-                null
+                    task.chatId(),
+                    true,
+                    redisKey,
+                    null
             );
             resultProducer.send(resultDto);
 
         } catch (Exception e) {
             log.error("Failed to sync notes for chat {}", task.chatId(), e);
 
-            // Send error result
             SyncNotesResultDto errorDto = new SyncNotesResultDto(
-                task.chatId(),
-                false,
-                null,
-                e.getMessage()
+                    task.chatId(),
+                    false,
+                    null,
+                    e.getMessage()
             );
             resultProducer.send(errorDto);
         }

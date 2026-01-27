@@ -45,13 +45,6 @@ public class EmbeddingService {
         }
     }
 
-    /**
-     * Generates embeddings for batch of texts
-     * More efficient than calling generateEmbedding() in a loop
-     *
-     * @param texts list of texts
-     * @return list of float[] vectors
-     */
     public List<float[]> generateEmbeddingsBatch(List<String> texts) {
         if (texts == null || texts.isEmpty()) {
             throw new IllegalArgumentException("Texts list cannot be null or empty");

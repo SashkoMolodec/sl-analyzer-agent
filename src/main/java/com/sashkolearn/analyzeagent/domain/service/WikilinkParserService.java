@@ -42,12 +42,10 @@ public class WikilinkParserService {
                 link = link.substring(0, link.indexOf("|")).trim();
             }
 
-            // Skip empty links
             if (link.isEmpty()) {
                 continue;
             }
 
-            // Normalize and add
             String normalizedFileName = normalizeFileName(link);
             wikilinks.add(normalizedFileName);
         }

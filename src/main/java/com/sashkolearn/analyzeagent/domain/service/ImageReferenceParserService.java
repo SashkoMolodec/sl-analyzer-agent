@@ -13,17 +13,10 @@ public class ImageReferenceParserService {
     // Pattern for Obsidian image references: ![[filename.png]] or ![[filename.png|width]]
     private static final Pattern IMAGE_REFERENCE_PATTERN = Pattern.compile("!\\[\\[([^\\]|]+)(?:\\|[^\\]]*)?\\]\\]");
 
-    // Supported image extensions
     private static final List<String> IMAGE_EXTENSIONS = List.of(
             ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"
     );
 
-    /**
-     * Extracts image file references from markdown content.
-     *
-     * @param content the markdown content
-     * @return list of image file names referenced in the content
-     */
     public List<String> extractImageReferences(String content) {
         if (content == null || content.isEmpty()) {
             return List.of();

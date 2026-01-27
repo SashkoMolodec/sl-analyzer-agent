@@ -3,7 +3,6 @@ package com.sashkolearn.analyzeagent.domain.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.anthropic.AnthropicChatModel;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
@@ -21,11 +20,16 @@ public class ClaudeVisionService {
     private final AnthropicChatModel anthropicChatModel;
 
     private static final String IMAGE_DESCRIPTION_PROMPT = """
-            Describe what you see in this image in detail. Focus on:
+            This image comes from a notebook with the following content:
+            ---
+            %s
+            ---
+
+            Describe what you see in this image in detail, keeping in mind the notebook context above. Focus on:
             - Any text, labels, or written content
             - Diagrams, charts, or visual structures
             - Key visual elements and their relationships
-            - The overall purpose or context of the image
+            - How the image relates to the notebook's topic and content
 
             Provide a concise but comprehensive description that would help someone understand the image content without seeing it.
             """;
@@ -36,7 +40,7 @@ public class ClaudeVisionService {
      * @param imagePath path to the image file
      * @return text description of the image
      */
-    public String describeImage(Path imagePath) {
+    public String describeImage(Path imagePath, String noteContent) {
         log.debug("Describing image: {}", imagePath);
 
         try {
@@ -44,7 +48,8 @@ public class ClaudeVisionService {
             var mimeType = getMimeType(imagePath);
             var media = new Media(mimeType, imageResource);
 
-            var userMessage = UserMessage.builder().text(IMAGE_DESCRIPTION_PROMPT).media(media).build();
+            var promptText = String.format(IMAGE_DESCRIPTION_PROMPT, noteContent);
+            var userMessage = UserMessage.builder().text(promptText).media(media).build();
             var prompt = new Prompt(userMessage);
 
             var response = anthropicChatModel.call(prompt);

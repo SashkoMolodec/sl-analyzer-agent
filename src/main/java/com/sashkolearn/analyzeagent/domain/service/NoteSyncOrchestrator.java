@@ -30,38 +30,34 @@ public class NoteSyncOrchestrator {
         log.info("Starting full notes synchronization");
 
         try {
-            // Phase 1: Sync files
-            progressCallback.accept("📁 1/4 Scanning markdown files...");
+
+            progressCallback.accept("📁 1/4 сканую нотатки...");
             NoteSyncService.SyncResult syncResult = noteSyncService.syncNotes();
             progressCallback.accept(
-                String.format("📁 1/4 Scanned: %d files (%d new, %d updated, %d deleted)",
+                String.format("📁 1/4 проскановано: %d файлів (%d нові, %d апдейтнуті, %d видалені)",
                     syncResult.totalFiles(), syncResult.newNotes(), syncResult.updatedNotes(), syncResult.deletedNotes())
             );
 
-            // Phase 2: Process attachments
-            progressCallback.accept("🖼️ 2/4 Processing image attachments...");
+            progressCallback.accept("🖼️ 2/4 обробляємо картинки...");
             AttachmentService.AttachmentResult attachmentResult = attachmentService.processAttachmentsForNotes(syncResult.changedNoteIds());
             progressCallback.accept(
-                String.format("🖼️ 2/4 Processed %d images (%d skipped, %d errors)",
+                String.format("🖼️ 2/4 опрацьовано %d картинок (%d скіпнуто, %d помилок)",
                     attachmentResult.processed(), attachmentResult.skipped(), attachmentResult.errors())
             );
 
-            // Phase 3: Generate embeddings (now enriched with attachment descriptions)
-            progressCallback.accept("🤖 3/4 Generating AI embeddings...");
+            progressCallback.accept("🤖 3/4 генеруємо вектори...");
             int embeddingsGenerated = noteSyncService.generateMissingEmbeddings();
             progressCallback.accept(
-                String.format("🤖 3/4 Generated %d embeddings", embeddingsGenerated)
+                String.format("🤖 3/4 згенеровано %d векторів", embeddingsGenerated)
             );
 
-            // Phase 4: Build links (only for changed notes)
-            progressCallback.accept("🔗 4/4 Building wikilink graph...");
+            progressCallback.accept("🔗 4/4 будуємо wikilink граф...");
             LinkService.LinkBuildResult linkResult = linkService.buildLinksForChangedNotes(syncResult.changedNoteIds());
             progressCallback.accept(
-                String.format("🔗 4/4 Updated links for %d notes (%d links, %d broken)",
+                String.format("🔗 4/4 оновлені лінки для %d нотаток (%d лінків, %d поламані)",
                     syncResult.changedNoteIds().size(), linkResult.totalLinks(), linkResult.brokenLinks())
             );
 
-            // Create result
             FullSyncResult result = new FullSyncResult(
                 new FullSyncResult.SyncStats(
                     syncResult.totalFiles(),

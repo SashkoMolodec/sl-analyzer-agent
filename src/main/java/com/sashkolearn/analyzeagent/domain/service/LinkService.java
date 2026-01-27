@@ -23,43 +23,6 @@ public class LinkService {
     private final WikilinkParserService wikilinkParser;
 
     /**
-     * Builds links between notes based on wikilinks
-     *
-     * Process:
-     * 1. Deletes all existing links
-     * 2. Parses wikilinks in each note
-     * 3. Creates new links
-     */
-    @Transactional
-    public LinkBuildResult buildAllLinks() {
-        log.info("Building links between notes...");
-
-        // Clean old links
-        linkRepository.deleteAll();
-        log.info("Deleted all existing links");
-
-        List<Note> allNotes = noteRepository.findAll();
-        log.info("Processing {} notes", allNotes.size());
-
-        int totalLinks = 0;
-        int brokenLinks = 0;
-
-        for (Note note : allNotes) {
-            try {
-                LinkStats stats = buildLinksForNote(note);
-                totalLinks += stats.created();
-                brokenLinks += stats.broken();
-            } catch (Exception e) {
-                log.error("Failed to build links for note: {}", note.getFileName(), e);
-            }
-        }
-
-        LinkBuildResult result = new LinkBuildResult(allNotes.size(), totalLinks, brokenLinks);
-        log.info("Link building completed: {}", result);
-        return result;
-    }
-
-    /**
      * Builds links only for changed notes (new or updated)
      * More efficient than buildAllLinks() - doesn't rebuild unchanged notes
      */
@@ -106,7 +69,6 @@ public class LinkService {
         // Delete old links for this note
         linkRepository.deleteAllLinksForNote(fromNote.getId());
 
-        // Parse wikilinks
         List<String> wikilinks = wikilinkParser.extractWikilinks(fromNote.getContent());
 
         if (wikilinks.isEmpty()) {
@@ -118,15 +80,14 @@ public class LinkService {
         int brokenLinks = 0;
 
         for (String wikilinkFileName : wikilinks) {
-            // Normalize file name
+
             String normalizedFileName = wikilinkParser.normalizeFileName(wikilinkFileName);
 
-            // Find target note
             Optional<Note> targetNote = noteRepository.findByFileName(normalizedFileName);
 
             if (targetNote.isEmpty()) {
                 log.warn("Broken wikilink in {}: [[{}]] - target not found",
-                    fromNote.getFileName(), wikilinkFileName);
+                        fromNote.getFileName(), wikilinkFileName);
                 brokenLinks++;
                 continue;
             }
@@ -137,26 +98,25 @@ public class LinkService {
                 continue;
             }
 
-            // Create link
             Link link = Link.builder()
-                .fromId(fromNote.getId())
-                .toId(targetNote.get().getId())
-                .label("RELATED")
-                .build();
+                    .fromId(fromNote.getId())
+                    .toId(targetNote.get().getId())
+                    .label("RELATED")
+                    .build();
 
             try {
                 linkRepository.save(link);
                 createdLinks++;
                 log.debug("Created link: {} -> {}", fromNote.getFileName(), targetNote.get().getFileName());
+
             } catch (Exception e) {
-                // Duplicate - ignore
                 log.debug("Duplicate link ignored: {} -> {}",
-                    fromNote.getFileName(), targetNote.get().getFileName());
+                        fromNote.getFileName(), targetNote.get().getFileName());
             }
         }
 
         log.info("Created {} links ({} broken) for: {}",
-            createdLinks, brokenLinks, fromNote.getFileName());
+                createdLinks, brokenLinks, fromNote.getFileName());
 
         return new LinkStats(createdLinks, brokenLinks);
     }
@@ -168,23 +128,22 @@ public class LinkService {
         List<Link> outgoingLinks = linkRepository.findByFromId(note.getId());
         List<Link> incomingLinks = linkRepository.findByToId(note.getId());
 
-        // Collect all unique related notes
         return java.util.stream.Stream.concat(
-            outgoingLinks.stream().map(link -> noteRepository.findById(link.getToId()).orElse(null)),
-            incomingLinks.stream().map(link -> noteRepository.findById(link.getFromId()).orElse(null))
-        )
-        .filter(java.util.Objects::nonNull)
-        .distinct()
-        .toList();
+                        outgoingLinks.stream().map(link -> noteRepository.findById(link.getToId()).orElse(null)),
+                        incomingLinks.stream().map(link -> noteRepository.findById(link.getFromId()).orElse(null))
+                )
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     private record LinkStats(int created, int broken) {
     }
 
     public record LinkBuildResult(
-        int totalNotes,
-        int totalLinks,
-        int brokenLinks
+            int totalNotes,
+            int totalLinks,
+            int brokenLinks
     ) {
     }
 }
