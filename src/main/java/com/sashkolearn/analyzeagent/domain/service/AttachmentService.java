@@ -1,5 +1,6 @@
 package com.sashkolearn.analyzeagent.domain.service;
 
+import com.sashkolearn.analyzeagent.util.VectorUtils;
 import com.sashkolearn.analyzeagent.config.NotesConfig;
 import com.sashkolearn.analyzeagent.domain.entity.Attachment;
 import com.sashkolearn.analyzeagent.domain.entity.Note;
@@ -84,7 +85,7 @@ public class AttachmentService {
 
                     if (description != null && !description.isEmpty()) {
                         float[] embedding = embeddingService.generateEmbedding(description);
-                        String embeddingStr = floatArrayToVectorString(embedding);
+                        String embeddingStr = VectorUtils.toVectorString(embedding);
                         attachmentRepository.updateEmbedding(imageFileName, embeddingStr);
                     }
 
@@ -111,16 +112,6 @@ public class AttachmentService {
      */
     public List<Attachment> getAttachmentsForNote(UUID noteId) {
         return attachmentRepository.findByNoteId(noteId);
-    }
-
-    private String floatArrayToVectorString(float[] floats) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < floats.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(floats[i]);
-        }
-        sb.append("]");
-        return sb.toString();
     }
 
     public record AttachmentResult(int processed, int skipped, int errors) {

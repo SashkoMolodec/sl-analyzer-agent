@@ -1,5 +1,6 @@
 package com.sashkolearn.analyzeagent.domain.service;
 
+import com.sashkolearn.analyzeagent.util.VectorUtils;
 import com.sashkolearn.analyzeagent.config.NotesConfig;
 import com.sashkolearn.analyzeagent.domain.entity.Attachment;
 import com.sashkolearn.analyzeagent.domain.entity.Note;
@@ -217,7 +218,7 @@ public class NoteSyncService {
         for (int i = 0; i < notes.size(); i++) {
             Note note = notes.get(i);
             float[] embedding = embeddings.get(i);
-            String embeddingStr = floatArrayToVectorString(embedding);
+            String embeddingStr = VectorUtils.toVectorString(embedding);
             noteRepository.updateEmbedding(note.getId(), embeddingStr);
             log.debug("Generated embedding for: {}", note.getFileName());
         }
@@ -238,16 +239,6 @@ public class NoteSyncService {
         }
 
         return enriched.toString();
-    }
-
-    private String floatArrayToVectorString(float[] floats) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < floats.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(floats[i]);
-        }
-        sb.append("]");
-        return sb.toString();
     }
 
     private enum SyncAction {
